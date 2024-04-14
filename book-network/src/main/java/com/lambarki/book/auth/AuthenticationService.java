@@ -1,12 +1,15 @@
 package com.lambarki.book.auth;
 
 import com.lambarki.book.email.EmailService;
+import com.lambarki.book.email.EmailTemplateName;
 import com.lambarki.book.role.RoleRepository;
 import com.lambarki.book.user.Token;
 import com.lambarki.book.user.TokenRepository;
 import com.lambarki.book.user.User;
 import com.lambarki.book.user.UserRepository;
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +25,11 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
-    public void register(registrationRequest request) {
+
+    @Value("${application.mailing.frontend.activation-url}")
+    private String activationUrl;
+
+    public void register(registrationRequest request) throws MessagingException {
         var userRole = roleRepository.findByName("USER")
         // todo - better exception handling
         .orElseThrow(() -> new IllegalStateException("ROLE USER was not initialized"));
@@ -41,9 +48,19 @@ public class AuthenticationService {
         sendValidation(user);
     }
 
-    private void sendValidation(User user) {
+    private void sendValidation(User user) throws MessagingException {
         var newToken = generateAndSaveActivationToken(user);
         //send email
+
+        emailService.sendEmail(
+                user.getEmail(),
+                user.fullName(),
+                EmailTemplateName.ACTIVATE_ACCOUNT,
+                activationUrl,
+                newToken,
+                "Account Activation"
+
+        );
     }
 
     private String generateAndSaveActivationToken(User user) {
